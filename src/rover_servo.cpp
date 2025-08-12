@@ -11,31 +11,33 @@
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 
-#define ADAFRUIT_PWM_EXPANDER_ADDR  0x40
+#define ADAFRUIT_PWM_EXPANDER_ADDR 0x40
 
-#define SERVO_UPDATE_INTERVAL_MS  10
+#define SERVO_UPDATE_INTERVAL_MS 10
 
-typedef enum ServoDirection {
+typedef enum ServoDirection
+{
   DIRECTION_POSITIVE,
   DIRECTION_NEGATIVE
 } ServoDirection;
 
-typedef struct ServoState {
-  uint16_t      min;
-  uint16_t      max;
-  uint16_t      current_pos;
-  uint16_t      start_pos;
-  uint16_t      end_pos;
-  uint8_t       speed;
-  uint32_t      num_moves;
-  uint32_t      steps_per_move;
-  uint32_t      num_moves_finished;
+typedef struct ServoState
+{
+  uint16_t min;
+  uint16_t max;
+  uint16_t current_pos;
+  uint16_t start_pos;
+  uint16_t end_pos;
+  uint8_t speed;
+  uint32_t num_moves;
+  uint32_t steps_per_move;
+  uint32_t num_moves_finished;
   ServoDirection direction;
-  bool          isPaused;
-  xList         path;
+  bool isPaused;
+  xList path;
 } ServoState;
 
-static void update_servo_positions_timer_cb(void* arg);
+static void update_servo_positions_timer_cb(void *arg);
 static void reset_moving_servo(RoverServoId servoId);
 static uint16_t calibrated_servo_map(RoverServoId servoId, uint16_t us, uint16_t in_low, uint16_t in_high, uint16_t out_low, uint16_t out_high);
 
@@ -46,12 +48,15 @@ static Adafruit_PWMServoDriver servo_driver = Adafruit_PWMServoDriver(ADAFRUIT_P
 static bool isInitialized = false;
 static ServoState servo_states[SERVO_LAST];
 
-void rover_servo_init(xSemaphoreHandle i2cSemHandle) {
+void rover_servo_init(xSemaphoreHandle i2cSemHandle)
+{
   TaskHandle_t xHandle = NULL;
-  if (!isInitialized) {
+  if (!isInitialized)
+  {
     isInitialized = true;
     memset(&servo_states, 0, sizeof(servo_states));
-    for (uint8_t i = 0; i < SERVO_LAST; i++) {
+    for (uint8_t i = 0; i < SERVO_LAST; i++)
+    {
       servo_states[i].current_pos = RC_CENTER;
     }
     i2cSemaphoreHandle = i2cSemHandle;
@@ -74,9 +79,12 @@ void rover_servo_write(RoverServoId servoId, uint16_t us, bool full_range)
   assert(us <= RC_HIGH);
   xSemaphoreTake(position_update_sem_handle, portMAX_DELAY);
   uint16_t pwm_value;
-  if (full_range) {
+  if (full_range)
+  {
     pwm_value = map(us, RC_LOW, RC_HIGH, SERVOMIN_FULL_RANGE, SERVOMAX_FULL_RANGE);
-  } else {
+  }
+  else
+  {
     pwm_value = calibrated_servo_map(servoId, us, RC_LOW, RC_HIGH, SERVOMIN, SERVOMAX);
   }
 
@@ -92,7 +100,7 @@ void rover_servo_write(RoverServoId servoId, uint16_t us, bool full_range)
 void rover_servo_move(RoverServoId servoId, uint16_t pos, uint8_t speed)
 {
   assert(servoId < SERVO_LAST);
-  ServoState* servo_state = &servo_states[servoId];
+  ServoState *servo_state = &servo_states[servoId];
   uint32_t steps_to_move;
   uint32_t internal_speed;
   assert(pos >= RC_LOW);
@@ -101,7 +109,8 @@ void rover_servo_move(RoverServoId servoId, uint16_t pos, uint8_t speed)
   assert(speed <= SERVO_MAX_SPEED);
   internal_speed = SERVO_MAX_SPEED + 1 - speed; // Speed is inverted internally 1 fastest, 10 slowest
 
-  if (pos == servo_state->current_pos || (pos == servo_state->end_pos && internal_speed == servo_state->speed)) return;
+  if (pos == servo_state->current_pos || (pos == servo_state->end_pos && internal_speed == servo_state->speed))
+    return;
   xSemaphoreTake(position_update_sem_handle, portMAX_DELAY);
   servo_state->isPaused = false;
   servo_state->end_pos = pos;
@@ -109,7 +118,8 @@ void rover_servo_move(RoverServoId servoId, uint16_t pos, uint8_t speed)
   servo_state->speed = internal_speed;
   steps_to_move = abs(servo_state->end_pos - servo_state->current_pos);
   servo_state->num_moves = (steps_to_move / SERVO_UPDATE_INTERVAL_MS);
-  if (servo_state->num_moves == 0) {
+  if (servo_state->num_moves == 0)
+  {
     servo_state->num_moves = 1;
   }
   servo_state->steps_per_move = steps_to_move / servo_state->num_moves;
@@ -130,35 +140,47 @@ void rover_servo_resume(RoverServoId servoId)
   servo_states[servoId].isPaused = false;
 }
 
-static void update_servo_positions_timer_cb(void* arg)
+static void update_servo_positions_timer_cb(void *arg)
 {
-  while (true) {
-    ServoState* axis;
+  while (true)
+  {
+    ServoState *axis;
     uint32_t next_servo_pos;
-    for (uint8_t i = 0; i < SERVO_LAST; i++) {
+    for (uint8_t i = 0; i < SERVO_LAST; i++)
+    {
       axis = &servo_states[i];
-      if (axis->num_moves == 0) continue;
-      if (axis->isPaused) continue;
+      if (axis->num_moves == 0)
+        continue;
+      if (axis->isPaused)
+        continue;
       xSemaphoreTake(position_update_sem_handle, portMAX_DELAY);
       axis->num_moves_finished++;
-      if (axis->num_moves_finished % axis->speed == 0) {
+      if (axis->num_moves_finished % axis->speed == 0)
+      {
         // Check if last move
-        if (abs(axis->current_pos - axis->end_pos) <= axis->steps_per_move) {
+        if (abs(axis->current_pos - axis->end_pos) <= axis->steps_per_move)
+        {
           axis->current_pos = axis->end_pos;
           next_servo_pos = axis->end_pos;
           axis->num_moves = 0;
           axis->num_moves_finished = 0;
           axis->start_pos = axis->current_pos;
-        } else if (axis->direction == DIRECTION_POSITIVE) {
+        }
+        else if (axis->direction == DIRECTION_POSITIVE)
+        {
           next_servo_pos = axis->current_pos + axis->steps_per_move;
           axis->current_pos = axis->current_pos + axis->steps_per_move;
-        } else {
+        }
+        else
+        {
           next_servo_pos = axis->current_pos - axis->steps_per_move;
           axis->current_pos = axis->current_pos - axis->steps_per_move;
         }
         xSemaphoreGive(position_update_sem_handle);
         rover_servo_write((RoverServoId)i, next_servo_pos, true);
-      } else {
+      }
+      else
+      {
         xSemaphoreGive(position_update_sem_handle);
       }
     }
@@ -169,34 +191,38 @@ static void update_servo_positions_timer_cb(void* arg)
 static void reset_moving_servo(RoverServoId servoId)
 {
   assert(servoId < SERVO_LAST);
-  memset(&servo_states[servoId], 0 , sizeof(ServoState));
+  memset(&servo_states[servoId], 0, sizeof(ServoState));
   servo_states[servoId].isPaused = true;
 }
 
 static uint16_t calibrated_servo_map(RoverServoId servoId, uint16_t us, uint16_t in_low, uint16_t in_high, uint16_t out_low, uint16_t out_high)
 {
   uint16_t val = map(us, in_low, in_high, out_low, out_high);
-  
-  switch (servoId) {
-    case SERVO_FRONT_LEFT:
-      val += SERVO_FRONT_LEFT_OFFSET;
-      break;
-    case SERVO_FRONT_RIGHT:
-      val += SERVO_FRONT_RIGHT_OFFSET;
-      break;
-    case SERVO_BACK_LEFT:
-      val += SERVO_BACK_LEFT_OFFSET;
-      break;
-    case SERVO_BACK_RIGHT:
-      val += SERVO_BACK_RIGHT_OFFSET;
-      break;
-    default:
-      break;
+
+  switch (servoId)
+  {
+  case SERVO_FRONT_LEFT:
+    val += SERVO_FRONT_LEFT_OFFSET;
+    break;
+  case SERVO_FRONT_RIGHT:
+    val += SERVO_FRONT_RIGHT_OFFSET;
+    break;
+  case SERVO_BACK_LEFT:
+    val += SERVO_BACK_LEFT_OFFSET;
+    break;
+  case SERVO_BACK_RIGHT:
+    val += SERVO_BACK_RIGHT_OFFSET;
+    break;
+  default:
+    break;
   }
 
-  if (val < SERVOMIN_FULL_RANGE) {
+  if (val < SERVOMIN_FULL_RANGE)
+  {
     val = SERVOMIN_FULL_RANGE;
-  } else if (val > SERVOMAX_FULL_RANGE) {
+  }
+  else if (val > SERVOMAX_FULL_RANGE)
+  {
     val = SERVOMAX_FULL_RANGE;
   }
 
