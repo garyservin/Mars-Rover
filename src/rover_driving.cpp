@@ -106,14 +106,14 @@ void rover_driving_move(uint16_t signal)
       }
       case MOTOR_FORWARD:
       {
-        int pwm = map(signal, RC_CENTER, RC_HIGH, 0, 255);
+        int pwm = map(signal, RC_CENTER, RC_HIGH, 0, 100);
         motors_left_2.TurnLeft(pwm);
         motors_right_2.TurnLeft(pwm);
         break;
       }
       case MOTOR_BACKWARD:
       {
-        int pwm = map(signal, RC_CENTER, RC_LOW, 0, 255);
+        int pwm = map(signal, RC_CENTER, RC_LOW, 0, 100);
         motors_left_2.TurnRight(pwm);
         motors_right_2.TurnRight(pwm);
         break;
@@ -150,7 +150,7 @@ void rover_driving_move(uint16_t signal)
       }
     }
     else if (signal > RC_CENTER)
-    {
+    { // Spin Clockwise
       if (motor_state == MOTOR_IDLE)
       {
         if (use_esc)
@@ -209,24 +209,24 @@ static void steer_normal(uint16_t signal)
   uint16_t diff = abs((int16_t)RC_CENTER - (int16_t)signal);
   if (signal < RC_CENTER && signal > 0)
   { // Left turn
-    rover_servo_write(SERVO_FRONT_LEFT, RC_CENTER - diff);
-    rover_servo_write(SERVO_FRONT_RIGHT, RC_CENTER - diff);
-    rover_servo_write(SERVO_BACK_LEFT, RC_CENTER + diff);
-    rover_servo_write(SERVO_BACK_RIGHT, RC_CENTER + diff);
-  }
-  else if (signal > RC_CENTER)
-  { // Right turn
     rover_servo_write(SERVO_FRONT_LEFT, RC_CENTER + diff);
     rover_servo_write(SERVO_FRONT_RIGHT, RC_CENTER + diff);
     rover_servo_write(SERVO_BACK_LEFT, RC_CENTER - diff);
     rover_servo_write(SERVO_BACK_RIGHT, RC_CENTER - diff);
   }
+  else if (signal > RC_CENTER)
+  { // Right turn
+    rover_servo_write(SERVO_FRONT_LEFT, RC_CENTER - diff);
+    rover_servo_write(SERVO_FRONT_RIGHT, RC_CENTER - diff);
+    rover_servo_write(SERVO_BACK_LEFT, RC_CENTER + diff);
+    rover_servo_write(SERVO_BACK_RIGHT, RC_CENTER + diff);
+  }
   else
   {
     rover_servo_write(SERVO_FRONT_LEFT, RC_CENTER);
-    rover_servo_write(SERVO_FRONT_RIGHT, RC_CENTER);
+    rover_servo_write(SERVO_FRONT_RIGHT, RC_CENTER + 70);
     rover_servo_write(SERVO_BACK_LEFT, RC_CENTER);
-    rover_servo_write(SERVO_BACK_RIGHT, RC_CENTER);
+    rover_servo_write(SERVO_BACK_RIGHT, RC_CENTER + 230);
   }
 }
 
