@@ -106,14 +106,14 @@ void rover_driving_move(uint16_t signal)
       }
       case MOTOR_FORWARD:
       {
-        int pwm = map(signal, RC_CENTER, RC_HIGH, 0, 100);
+        int pwm = map(signal, RC_CENTER, RC_HIGH, 0, 180);
         motors_left_2.TurnLeft(pwm);
         motors_right_2.TurnLeft(pwm);
         break;
       }
       case MOTOR_BACKWARD:
       {
-        int pwm = map(signal, RC_CENTER, RC_LOW, 0, 100);
+        int pwm = map(signal, RC_CENTER, RC_LOW, 0, 180);
         motors_left_2.TurnRight(pwm);
         motors_right_2.TurnRight(pwm);
         break;
@@ -224,9 +224,9 @@ static void steer_normal(uint16_t signal)
   else
   {
     rover_servo_write(SERVO_FRONT_LEFT, RC_CENTER);
-    rover_servo_write(SERVO_FRONT_RIGHT, RC_CENTER + 70);
+    rover_servo_write(SERVO_FRONT_RIGHT, RC_CENTER);
     rover_servo_write(SERVO_BACK_LEFT, RC_CENTER);
-    rover_servo_write(SERVO_BACK_RIGHT, RC_CENTER + 230);
+    rover_servo_write(SERVO_BACK_RIGHT, RC_CENTER);
   }
 }
 
