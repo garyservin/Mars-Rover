@@ -13,6 +13,7 @@ bool use_esc = false;
 
 static void steer_normal(uint16_t signal);
 static void steer_spin(uint16_t signal);
+static uint16_t steer_signal = RC_CENTER; // guarda última señal de dirección
 
 enum MotorDirection
 {
@@ -106,14 +107,42 @@ void rover_driving_move(uint16_t signal)
       }
       case MOTOR_FORWARD:
       {
-        int pwm = map(signal, RC_CENTER, RC_HIGH, 0, 100);
+        int pwm = map(signal, RC_CENTER, RC_HIGH, 0, 200);
+        int pwm_left = pwm; // Modificación 02/09/25
+        int pwm_right = pwm; // Modificación 02/09/25
+
+        // Ajuste según dirección 02/09/25
+      if (steer_signal < RC_CENTER) {
+        // Giro a la izquierda → lado izquierdo más lento
+        pwm_left = 180;   // 70% de la velocidad max
+        pwm_right = 200;  // velocidad actual
+      }
+      else if (steer_signal > RC_CENTER) {
+        // Giro a la derecha → lado derecho más lento
+        pwm_right = 180;  // 70% de la velocidad
+        pwm_left = 200;
+      }
         motors_left_2.TurnLeft(pwm);
         motors_right_2.TurnLeft(pwm);
         break;
       }
       case MOTOR_BACKWARD:
       {
-        int pwm = map(signal, RC_CENTER, RC_LOW, 0, 100);
+        int pwm = map(signal, RC_CENTER, RC_LOW, 0, 200);
+        int pwm_left = pwm; // Modificación 02/09/25
+        int pwm_right = pwm; // Modificación 02/09/25
+
+        // Ajuste según dirección 02/09/25
+      if (steer_signal < RC_CENTER) {
+        // Giro a la izquierda → lado izquierdo más lento
+        pwm_left = 180;   // 70% de la velocidad max
+        pwm_right = 200;  // velocidad actual
+      }
+      else if (steer_signal > RC_CENTER) {
+        // Giro a la derecha → lado derecho más lento
+        pwm_right = 180;  // 70% de la velocidad
+        pwm_left = 200;
+      }
         motors_left_2.TurnRight(pwm);
         motors_right_2.TurnRight(pwm);
         break;
@@ -191,6 +220,7 @@ void rover_driving_move(uint16_t signal)
 
 void rover_driving_steer(uint16_t signal)
 {
+  steer_signal = signal; // guardamos el último valor de dirección
   switch (current_rover_mode)
   {
   case DRIVE_TURN_NORMAL:
