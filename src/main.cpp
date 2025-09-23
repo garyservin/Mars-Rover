@@ -1,5 +1,5 @@
 /*
- * Code for controlling my Rover. Controlled using generic 6 channel RC Transmitter, Websocket or Lora.
+ * Code for controlling my Rover. Controlled using generic 6 channel RC Transmitter, Websocket or Serial.
  *
  * On the transmitter I use two joysticks for channels 1-4 for, and two switches for channel 5-6.
  * Joysticks are used both for steering the Rover and for moving each axis of the arm.
@@ -16,6 +16,7 @@
 #include <ESP32Servo.h>
 #include "Wire.h"
 #include "rc_receiver_rmt.h"
+#include "serial_controller.h"
 #include "switch_checker.h"
 #include "arm.h"
 #include "rover_servo.h"
@@ -39,6 +40,8 @@
 #define LOGLN(msg)
 #endif
 
+static void handle_serial_controller_status(SerialControllerStatus status);
+
 static void handle_robot_arm_servo(ArmAxis arm_axis, uint16_t channel);
 static uint16_t get_controller_channel_value(uint8_t channel);
 static uint16_t filter_signal(uint16_t *signals);
@@ -54,6 +57,9 @@ static uint8_t rc_value_index = 0;
 static RoverMode current_rover_mode = DRIVE_TURN_NORMAL;
 static ArmMode current_arm_mode = ARM_MODE_MOVE;
 
+static bool wifi_control_enabled = false;
+static bool serial_control_enabled = false;
+
 void setup()
 {
   Serial.begin(SERIAL_PORT_SPEED);
@@ -68,11 +74,18 @@ void setup()
 
   rc_receiver_rmt_init();
 
-  init_switch_checker(RC_LOW, RC_ROVER_MODE_ROVER_CHANNEL, RC_ARM_MODE_ROVER_CHANNEL, &handle_rover_mode_changed, &handle_arm_mode_changed, false);
+  init_switch_checker(
+      RC_LOW,
+      RC_ROVER_MODE_ROVER_CHANNEL,
+      RC_ARM_MODE_ROVER_CHANNEL,
+      &handle_rover_mode_changed,
+      &handle_arm_mode_changed,
+      wifi_control_enabled,
+      serial_control_enabled);
 
   rover_driving_init();
-  // arm_init();
-  // rover_head_init();
+  arm_init();
+  rover_head_init();
 
   LOGF("Rover Ready! Core: %d", xPortGetCoreID());
 
@@ -92,8 +105,20 @@ void loop()
 
     rc_values[RC_STEER_CHANNEL][rc_value_index] = get_controller_channel_value(RC_STEER_CHANNEL);
     rc_values[RC_MOTOR_CHANNEL][rc_value_index] = get_controller_channel_value(RC_MOTOR_CHANNEL);
-    // rc_values[RC_HEAD_PITCH_CHANNEL][rc_value_index] = get_controller_channel_value(RC_HEAD_PITCH_CHANNEL);
-    // rc_values[RC_HEAD_YAW_CHANNEL][rc_value_index] = get_controller_channel_value(RC_HEAD_YAW_CHANNEL);
+    rc_values[RC_HEAD_PITCH_CHANNEL][rc_value_index] = get_controller_channel_value(RC_HEAD_PITCH_CHANNEL);
+    rc_values[RC_HEAD_YAW_CHANNEL][rc_value_index] = get_controller_channel_value(RC_HEAD_YAW_CHANNEL);
+
+    /*
+    LOGLN("ROBOT_MOVE");
+    LOG("RC_STEER: ");
+    LOG(rc_values[RC_STEER_CHANNEL][rc_value_index]);
+    LOG(" | RC_MOTOR: ");
+    LOG(rc_values[RC_MOTOR_CHANNEL][rc_value_index]);
+    LOG(" | RC_HEAD_PITCH: ");
+    LOG(rc_values[RC_HEAD_PITCH_CHANNEL][rc_value_index]);
+    LOG(" | RC_HEAD_YAW: ");
+    LOGLN(rc_values[RC_HEAD_YAW_CHANNEL][rc_value_index]);
+    */
 
     if (current_rover_mode == DRIVE_TURN_NORMAL)
     {
@@ -107,35 +132,53 @@ void loop()
     rover_driving_move(motor_signal);
     rover_driving_steer(filter_signal(rc_values[RC_STEER_CHANNEL]));
 
-    // uint16_t yawUs = filter_signal(rc_values[RC_HEAD_YAW_CHANNEL]);
-    // uint16_t pitchUs = filter_signal(rc_values[RC_HEAD_PITCH_CHANNEL]);
+    uint16_t yawUs = filter_signal(rc_values[RC_HEAD_YAW_CHANNEL]);
+    uint16_t pitchUs = filter_signal(rc_values[RC_HEAD_PITCH_CHANNEL]);
 
-    // rover_head_yaw(yawUs);
-    // rover_head_pitch(pitchUs);
+    rover_head_yaw(yawUs);
+    rover_head_pitch(pitchUs);
     break;
   }
-    // case ROBOT_ARM:
-    //   if (current_arm_mode == ARM_MODE_MOVE)
-    //   {
-    //     rc_values[RC_SERVO1_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO1_CHANNEL);
-    //     rc_values[RC_SERVO2_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO2_CHANNEL);
-    //     rc_values[RC_SERVO3_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO3_CHANNEL);
-    //     rc_values[RC_SERVO4_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO4_CHANNEL);
+  case ROBOT_ARM:
+    if (current_arm_mode == ARM_MODE_MOVE)
+    {
+      rc_values[RC_SERVO1_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO1_CHANNEL);
+      rc_values[RC_SERVO2_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO2_CHANNEL);
+      rc_values[RC_SERVO3_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO3_CHANNEL);
+      rc_values[RC_SERVO4_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO4_CHANNEL);
 
-    //    handle_robot_arm_servo(ARM_AXIS_1, RC_SERVO1_CHANNEL);
-    //    handle_robot_arm_servo(ARM_AXIS_2, RC_SERVO2_CHANNEL);
-    //    handle_robot_arm_servo(ARM_AXIS_3, RC_SERVO3_CHANNEL);
-    //    handle_robot_arm_servo(ARM_AXIS_4, RC_SERVO4_CHANNEL);
-    //  }
-    //  else if (current_arm_mode == ARM_MODE_GRIPPER)
-    //  {
-    //    rc_values[RC_SERVO5_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO5_CHANNEL);
-    //    rc_values[RC_SERVO6_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO6_CHANNEL);
+      handle_robot_arm_servo(ARM_AXIS_1, RC_SERVO1_CHANNEL);
+      handle_robot_arm_servo(ARM_AXIS_2, RC_SERVO2_CHANNEL);
+      handle_robot_arm_servo(ARM_AXIS_3, RC_SERVO3_CHANNEL);
+      handle_robot_arm_servo(ARM_AXIS_4, RC_SERVO4_CHANNEL);
 
-    //    handle_robot_arm_servo(ARM_AXIS_5, RC_SERVO5_CHANNEL);
-    //    handle_robot_arm_servo(ARM_AXIS_6, RC_SERVO6_CHANNEL);
-    //  }
-    //  break;
+      /*
+      LOG("ROBO_ARM | s1: ");
+      LOG(rc_values[RC_SERVO1_CHANNEL][rc_value_index]);
+      LOG(" | s2: ");
+      LOG(rc_values[RC_SERVO2_CHANNEL][rc_value_index]);
+      LOG(" | s3: ");
+      LOG(rc_values[RC_SERVO3_CHANNEL][rc_value_index]);
+      LOG(" | s4: ");
+      LOGLN(rc_values[RC_SERVO4_CHANNEL][rc_value_index]);
+      */
+    }
+    else if (current_arm_mode == ARM_MODE_GRIPPER)
+    {
+      rc_values[RC_SERVO5_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO5_CHANNEL);
+      rc_values[RC_SERVO6_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO6_CHANNEL);
+
+      handle_robot_arm_servo(ARM_AXIS_5, RC_SERVO5_CHANNEL);
+      handle_robot_arm_servo(ARM_AXIS_6, RC_SERVO6_CHANNEL);
+
+      /*
+      LOG("GRIPPER | s1: ");
+      LOG(rc_values[RC_SERVO5_CHANNEL][rc_value_index]);
+      LOG(" | s4: ");
+      LOGLN(rc_values[RC_SERVO6_CHANNEL][rc_value_index]);
+      */
+    }
+    break;
   }
   rc_value_index = (rc_value_index + 1) % RC_FILTER_SAMPLES;
 

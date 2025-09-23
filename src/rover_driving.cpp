@@ -158,9 +158,8 @@ void rover_driving_move(uint16_t signal)
       {
         break;
       }
+      }
     }
-    break;
-  }
   /* Not used atm
   case DRIVE_TURN_SPIN:
   {

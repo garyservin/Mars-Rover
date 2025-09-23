@@ -1,7 +1,7 @@
 #include "switch_checker.h"
 #include "rc_receiver_rmt.h"
-// #include "wifi_controller.h"
-// #include "lora_controller.h"
+#include "wifi_controller.h"
+#include "serial_controller.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "rover_config.h"
@@ -10,12 +10,12 @@ typedef enum ControllerSource
 {
   SOURCE_RC,
   SOURCE_WIFI,
-  SOURCE_LORA
+  SOURCE_SERIAL
 } ControllerSource;
 
 static void check_switch_channels(void *params);
 // static void handle_wifi_controller_status(WifiControllerStatus status);
-// static void handle_lora_controller_status(LoraControllerStatus status);
+static void handle_serial_controller_status(SerialControllerStatus status);
 static void update_controller_source(void);
 static uint16_t get_channel_value(uint16_t channel);
 
@@ -27,9 +27,9 @@ static uint16_t arm_mode_channel;
 
 static ControllerSource controller_source = SOURCE_RC;
 // static WifiControllerStatus wifi_state = WIFI_CONTROLLER_DISCONNECTED;
-// static LoraControllerStatus lora_state = LORA_CONTROLLER_DISCONNECTED;
+static SerialControllerStatus serial_state = SERIAL_CONTROLLER_DISCONNECTED;
 
-void init_switch_checker(uint32_t check_interval_ms, uint16_t rover_mode_switch_channel, uint16_t arm_mode_switch_channel, RoverModeChanged *callback, ArmModeChanged *arm_callback, bool wifi_enabled)
+void init_switch_checker(uint32_t check_interval_ms, uint16_t rover_mode_switch_channel, uint16_t arm_mode_switch_channel, RoverModeChanged *callback, ArmModeChanged *arm_callback, bool wifi_enabled, bool serial_enabled)
 {
   BaseType_t status;
   TaskHandle_t xHandle = NULL;
@@ -44,7 +44,11 @@ void init_switch_checker(uint32_t check_interval_ms, uint16_t rover_mode_switch_
   {
     // wifi_controller_register_connection_callback(&handle_wifi_controller_status);
   }
-  // lora_controller_register_connection_callback(&handle_lora_controller_status);
+
+  if (serial_enabled)
+  {
+    // serial_controller_register_connection_callback(&handle_serial_controller_status);
+  }
 
   status = xTaskCreate(check_switch_channels, "SwitchChecker", 2048, NULL, tskIDLE_PRIORITY, &xHandle);
   assert(status == pdPASS);
@@ -56,17 +60,17 @@ void init_switch_checker(uint32_t check_interval_ms, uint16_t rover_mode_switch_
 //   update_controller_source();
 // }
 
-// static void handle_lora_controller_status(LoraControllerStatus status)
-//{
-//   lora_state = status;
-//   update_controller_source();
-// }
+static void handle_serial_controller_status(SerialControllerStatus status)
+{
+  serial_state = status;
+  update_controller_source();
+}
 
 static void update_controller_source(void)
 {
-  // if (lora_state == LORA_CONTROLLER_CONNECTED)
+  // if (serial_state == SERIAL_CONTROLLER_CONNECTED)
   //{
-  //   controller_source = SOURCE_LORA;
+  //   controller_source = SOURCE_SERIAL;
   // }
   // else if (wifi_state == WIFI_CONTROLLER_CONNECTED)
   //{
@@ -91,28 +95,28 @@ static void check_switch_channels(void *params)
 
     signal = get_channel_value(rover_mode_channel);
 
-    if (signal < RC_CENTER - 100)
+    if (signal > RC_CENTER + 100)
     {
       new_rover_mode = DRIVE_TURN_NORMAL;
     }
-    else if (signal > RC_CENTER + 100)
+    else if (signal < RC_CENTER - 100)
     {
       new_rover_mode = ROBOT_ARM;
     }
-    else
-    {
-      new_rover_mode = DRIVE_TURN_SPIN;
-    }
+    // else
+    //{
+    //   new_rover_mode = DRIVE_TURN_SPIN;
+    // }
 
     signal = get_channel_value(arm_mode_channel);
 
-    if (signal < RC_CENTER - 100)
-    {
-      new_arm_mode = ARM_MODE_MOVE;
-    }
-    else if (signal > RC_CENTER + 100)
+    if (signal > RC_CENTER + 100)
     {
       new_arm_mode = ARM_MODE_GRIPPER;
+    }
+    else
+    {
+      new_arm_mode = ARM_MODE_MOVE;
     }
 
     if (new_rover_mode != current_rover_mode)
@@ -141,9 +145,9 @@ static uint16_t get_channel_value(uint16_t channel)
   // case SOURCE_WIFI:
   //   value = wifi_controller_get_val(channel);
   //   break;
-  // case SOURCE_LORA:
-  //   value = lora_controller_get_val(channel);
-  //   break;
+  // case SOURCE_SERIAL:
+  //  value = serial_controller_get_val(channel);
+  //  break;
   default:
     assert(false);
     break;

@@ -20,14 +20,14 @@
 #define RC_CH1_INPUT 34
 #define RC_CH2_INPUT 35
 #define RC_CH3_INPUT 4
-#define RC_CH4_INPUT 39
-#define RC_CH5_INPUT 25
-#define RC_CH6_INPUT 36
+#define RC_CH4_INPUT 15
+#define RC_CH5_INPUT 18
+#define RC_CH6_INPUT 19
 
-#define RC_STEER_CHANNEL RC_CH1
-#define RC_MOTOR_CHANNEL RC_CH2
-#define RC_HEAD_YAW_CHANNEL RC_CH3
-#define RC_HEAD_PITCH_CHANNEL RC_CH4
+#define RC_STEER_CHANNEL RC_CH2
+#define RC_MOTOR_CHANNEL RC_CH1
+#define RC_HEAD_YAW_CHANNEL RC_CH4
+#define RC_HEAD_PITCH_CHANNEL RC_CH3
 
 #define RC_SERVO1_CHANNEL RC_CH1
 #define RC_SERVO2_CHANNEL RC_CH2
@@ -55,6 +55,7 @@
 #define SERVOMIN_FULL_RANGE 150 // this is the 'minimum' pulse length count (out of 4096)
 #define SERVOMAX_FULL_RANGE 600 // this is the 'maximum' pulse length count (out of 4096)
 
+// These were used for the ESCC, not used currently
 #define ROVER_MOTORS_LEFT_PIN 19
 #define ROVER_MOTORS_RIGHT_PIN 18
 
@@ -76,5 +77,8 @@
 #define RIGHT_R_EN 14
 #define RIGHT_L_PWM 13
 #define RIGHT_R_PWM 12
+
+#define SERIAL_CONTROLLER_PORT Serial2
+#define SERIAL_CONTROLLER_PORT_SPEED 115200
 
 const uint16_t config_default_ch_values[RC_NUM_CHANNELS] = {RC_CENTER, RC_CENTER, RC_CENTER, RC_CENTER, RC_LOW, RC_CENTER};
