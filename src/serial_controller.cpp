@@ -32,35 +32,35 @@ static xSemaphoreHandle serial_sem;
 
 void serial_controller_init()
 {
-    // assert(!is_initialized);
-    // BaseType_t task_create_status;
+    assert(!is_initialized);
+    BaseType_t task_create_status;
 
-    // memset(channel_values, 0, sizeof(channel_values));
-    // num_callbacks = 0;
-    // serial_sem = xSemaphoreCreateBinary();
-    // assert(serial_sem != NULL);
+    memset(channel_values, 0, sizeof(channel_values));
+    num_callbacks = 0;
+    serial_sem = xSemaphoreCreateBinary();
+    assert(serial_sem != NULL);
 
-    // SERIAL_CONTROLLER_PORT.begin(SERIAL_CONTROLLER_PORT_SPEED);
+    SERIAL_CONTROLLER_PORT.begin(SERIAL_CONTROLLER_PORT_SPEED);
 
-    // xSemaphoreGive(serial_sem);
+    xSemaphoreGive(serial_sem);
 
-    // ESP_LOGI(TAG, "Starting serial OK!");
+    task_create_status = xTaskCreate(serial_state_checker, "serial_state_checker", 2048, NULL, tskIDLE_PRIORITY, NULL);
+    assert(task_create_status == pdPASS);
 
-    // task_create_status = xTaskCreate(serial_state_checker, "serial_state_checker", 2048, NULL, tskIDLE_PRIORITY, NULL);
-    // assert(task_create_status == pdPASS);
+    task_create_status = xTaskCreate(serial_receive_task, "serial_receive", 2048, NULL, 2, &task_handle);
+    assert(task_create_status == pdPASS);
 
-    // task_create_status = xTaskCreate(serial_receive_task, "serial_receive", 2048, NULL, 2, &task_handle);
-    // assert(task_create_status == pdPASS);
+    is_initialized = true;
 
-    // is_initialized = true;
+    ESP_LOGI(TAG, "Starting serial OK!");
 }
 
 void serial_controller_register_connection_callback(SerialControllerStatusCb *cb)
 {
-    // assert(num_callbacks <= MAX_REGISTRATED_CALLBACKS);
-    // assert(is_initialized);
-    // status_callbacks[num_callbacks] = cb;
-    // num_callbacks++;
+    assert(num_callbacks <= MAX_REGISTRATED_CALLBACKS);
+    assert(is_initialized);
+    status_callbacks[num_callbacks] = cb;
+    num_callbacks++;
 }
 
 uint16_t serial_controller_get_val(uint8_t channel)
@@ -72,86 +72,79 @@ uint16_t serial_controller_get_val(uint8_t channel)
     return value;
 }
 
+/*
 void serial_controller_send(uint8_t *buf, uint16_t length)
 {
-    // assert(xSemaphoreTake(serial_sem, pdMS_TO_TICKS(50)) == pdTRUE);
-    //  SERIAL_CONTROLLER_PORT.write(buf, length);
-    //  SERIAL_CONTROLLER_PORT.endPacket();
-    //  SERIAL_CONTROLLER_PORT.receive();
-    // xSemaphoreGive(serial_sem);
+    assert(xSemaphoreTake(serial_sem, pdMS_TO_TICKS(50)) == pdTRUE);
+    SERIAL_CONTROLLER_PORT.write(buf, length);
+    // SERIAL_CONTROLLER_PORT.endPacket();
+    // SERIAL_CONTROLLER_PORT.receive();
+    xSemaphoreGive(serial_sem);
 }
+    */
 
 static void serial_receive_task(void *args)
 {
-    // while (true)
-    //{
-    //     uint32_t i = 0;
-    //     uint32_t notification;
+    while (true)
+    {
+        uint32_t i = 0;
 
-    //    assert(xTaskNotifyWait(SERIAL_DATA_NOTIFICATION, 0, &notification, portMAX_DELAY));
-    //    assert(notification == SERIAL_DATA_NOTIFICATION);
+        assert(xSemaphoreTake(serial_sem, pdMS_TO_TICKS(50)) == pdTRUE);
 
-    //    assert(xSemaphoreTake(serial_sem, pdMS_TO_TICKS(50)) == pdTRUE);
+        int bytes_available = SERIAL_CONTROLLER_PORT.available();
+        if (bytes_available)
+        {
+            last_serial_data_ticks = xTaskGetTickCount();
+            // printf("Serial Data available: %d bytes\n", bytes_available);
+            for (int byte = 0; byte < bytes_available; byte++)
+            {
+                receive_buf[byte] = (uint8_t)SERIAL_CONTROLLER_PORT.read();
+            }
 
-    //    while (SERIAL_CONTROLLER_PORT.available())
-    //    {
-    //        if (i < SERIAL_PACKET_LENGTH)
-    //        {
-    //            receive_buf[i] = (uint8_t)SERIAL_CONTROLLER_PORT.read();
-    //        }
-    //        else
-    //        {
-    //            SERIAL_CONTROLLER_PORT.read();
-    //        }
-    //        i++;
-    //    }
-
-    //    if (i != SERIAL_PACKET_LENGTH)
-    //    {
-    //        printf("ERROR: Unexpected data length: %d\n", i);
-    //    }
-    //    else
-    //    {
-    //        memcpy(channel_values, receive_buf, SERIAL_PACKET_LENGTH);
-    //        // printf("Got: %d, %d \t %d, %d \t %d, %d\n", channel_values[0], channel_values[1], channel_values[2],  channel_values[3], channel_values[4], channel_values[5]);
-    //    }
-    //    xSemaphoreGive(serial_sem);
-    //}
-}
-
-static IRAM_ATTR void serial_availible_isr(void)
-{
-    // last_serial_data_ticks = xTaskGetTickCountFromISR();
-    // assert(xTaskNotifyFromISR(task_handle, SERIAL_DATA_NOTIFICATION, eSetValueWithOverwrite, NULL) == pdPASS);
+            if (bytes_available != SERIAL_PACKET_LENGTH)
+            {
+                printf("ERROR: Unexpected data length: %d\n", bytes_available);
+            }
+            else
+            {
+                memcpy(channel_values, receive_buf, SERIAL_PACKET_LENGTH);
+                // printf("Got: %d, %d \t %d, %d \t %d, %d\n", channel_values[0], channel_values[1], channel_values[2], channel_values[3], channel_values[4], channel_values[5]);
+            }
+        }
+        xSemaphoreGive(serial_sem);
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
 }
 
 static void serial_state_checker(void *args)
 {
-    // while (true)
-    //{
-    //     if (last_serial_data_ticks > last_serial_data_checked_ticks)
-    //     {
-    //         if (status == SERIAL_CONTROLLER_DISCONNECTED)
-    //         {
-    //             status = SERIAL_CONTROLLER_CONNECTED;
-    //             for (uint8_t i = 0; i < num_callbacks; i++)
-    //             {
-    //                 status_callbacks[i](SERIAL_CONTROLLER_CONNECTED);
-    //             }
-    //         }
-    //     }
-    //     else
-    //     {
-    //         if (status == SERIAL_CONTROLLER_CONNECTED)
-    //         {
-    //             status = SERIAL_CONTROLLER_DISCONNECTED;
-    //             for (uint8_t i = 0; i < num_callbacks; i++)
-    //             {
-    //                 status_callbacks[i](SERIAL_CONTROLLER_DISCONNECTED);
-    //             }
-    //         }
-    //     }
-    //     last_serial_data_checked_ticks = xTaskGetTickCount();
-    //     vTaskDelay(pdMS_TO_TICKS(2000));
-    // }
+    while (true)
+    {
+        if (last_serial_data_ticks > last_serial_data_checked_ticks)
+        {
+            if (status == SERIAL_CONTROLLER_DISCONNECTED)
+            {
+                // printf("Setting status to connected\n");
+                status = SERIAL_CONTROLLER_CONNECTED;
+                for (uint8_t i = 0; i < num_callbacks; i++)
+                {
+                    status_callbacks[i](SERIAL_CONTROLLER_CONNECTED);
+                }
+            }
+        }
+        else
+        {
+            if (status == SERIAL_CONTROLLER_CONNECTED)
+            {
+                // printf("Setting status to disconnected\n");
+                status = SERIAL_CONTROLLER_DISCONNECTED;
+                for (uint8_t i = 0; i < num_callbacks; i++)
+                {
+                    status_callbacks[i](SERIAL_CONTROLLER_DISCONNECTED);
+                }
+            }
+        }
+        last_serial_data_checked_ticks = xTaskGetTickCount();
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
 }

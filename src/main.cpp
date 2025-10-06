@@ -57,8 +57,7 @@ static uint8_t rc_value_index = 0;
 static RoverMode current_rover_mode = DRIVE_TURN_NORMAL;
 static ArmMode current_arm_mode = ARM_MODE_MOVE;
 
-static bool wifi_control_enabled = false;
-static bool serial_control_enabled = false;
+static bool serial_control_enabled = true;
 
 void setup()
 {
@@ -74,20 +73,28 @@ void setup()
 
   rc_receiver_rmt_init();
 
+  serial_controller_init();
+
+  vTaskDelay(pdMS_TO_TICKS(100));
+
+  if (serial_control_enabled)
+  {
+    serial_controller_register_connection_callback(&handle_serial_controller_status);
+  }
+
   init_switch_checker(
       RC_LOW,
       RC_ROVER_MODE_ROVER_CHANNEL,
       RC_ARM_MODE_ROVER_CHANNEL,
       &handle_rover_mode_changed,
       &handle_arm_mode_changed,
-      wifi_control_enabled,
       serial_control_enabled);
 
   rover_driving_init();
   arm_init();
   rover_head_init();
 
-  LOGF("Rover Ready! Core: %d", xPortGetCoreID());
+  LOGF("Rover Ready! Core: %d\n", xPortGetCoreID());
 
   pinMode(2, OUTPUT);
 }
@@ -267,5 +274,18 @@ static void handle_controller_disconnected(uint16_t last_sampled_signal)
         rc_values[channel][sample] = RC_CENTER;
       }
     }
+  }
+}
+
+static void handle_serial_controller_status(SerialControllerStatus status)
+{
+  if (status != SERIAL_CONTROLLER_CONNECTED)
+  {
+    handle_controller_disconnected(0);
+    serial_control_enabled = false;
+  }
+  else
+  {
+    serial_control_enabled = true;
   }
 }

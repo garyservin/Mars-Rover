@@ -18,4 +18,4 @@ typedef enum ArmMode
 typedef void(RoverModeChanged)(RoverMode mode);
 typedef void(ArmModeChanged)(ArmMode mode);
 
-void init_switch_checker(uint32_t check_interval_ms, uint16_t rover_mode_switch_channel, uint16_t arm_mode_switch_channel, RoverModeChanged *callback, ArmModeChanged *arm_callback, bool wifi_enabled, bool serial_enabled);
+void init_switch_checker(uint32_t check_interval_ms, uint16_t rover_mode_switch_channel, uint16_t arm_mode_switch_channel, RoverModeChanged *callback, ArmModeChanged *arm_callback, bool serial_enabled);
