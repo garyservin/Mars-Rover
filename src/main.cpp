@@ -57,7 +57,7 @@ static uint8_t rc_value_index = 0;
 static RoverMode current_rover_mode = DRIVE_TURN_NORMAL;
 static ArmMode current_arm_mode = ARM_MODE_MOVE;
 
-static bool serial_control_enabled = true;
+static bool serial_control_enabled = false;
 
 void setup()
 {
@@ -116,7 +116,7 @@ void loop()
     rc_values[RC_HEAD_YAW_CHANNEL][rc_value_index] = get_controller_channel_value(RC_HEAD_YAW_CHANNEL);
 
     /*
-    LOGLN("ROBOT_MOVE");
+    // LOGLN("ROBOT_MOVE");
     LOG("RC_STEER: ");
     LOG(rc_values[RC_STEER_CHANNEL][rc_value_index]);
     LOG(" | RC_MOTOR: ");
@@ -149,15 +149,15 @@ void loop()
   case ROBOT_ARM:
     if (current_arm_mode == ARM_MODE_MOVE)
     {
-      rc_values[RC_SERVO1_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO1_CHANNEL);
-      rc_values[RC_SERVO2_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO2_CHANNEL);
-      rc_values[RC_SERVO3_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO3_CHANNEL);
-      rc_values[RC_SERVO4_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO4_CHANNEL);
+      // rc_values[RC_SERVO1_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO1_CHANNEL);
+      // rc_values[RC_SERVO2_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO2_CHANNEL);
+      // rc_values[RC_SERVO3_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO3_CHANNEL);
+      // rc_values[RC_SERVO4_CHANNEL][rc_value_index] = get_controller_channel_value(RC_SERVO4_CHANNEL);
 
-      handle_robot_arm_servo(ARM_AXIS_1, RC_SERVO1_CHANNEL);
-      handle_robot_arm_servo(ARM_AXIS_2, RC_SERVO2_CHANNEL);
-      handle_robot_arm_servo(ARM_AXIS_3, RC_SERVO3_CHANNEL);
-      handle_robot_arm_servo(ARM_AXIS_4, RC_SERVO4_CHANNEL);
+      // handle_robot_arm_servo(ARM_AXIS_1, RC_SERVO1_CHANNEL);
+      // handle_robot_arm_servo(ARM_AXIS_2, RC_SERVO2_CHANNEL);
+      // handle_robot_arm_servo(ARM_AXIS_3, RC_SERVO3_CHANNEL);
+      // handle_robot_arm_servo(ARM_AXIS_4, RC_SERVO4_CHANNEL);
 
       /*
       LOG("ROBO_ARM | s1: ");
@@ -218,7 +218,14 @@ static uint16_t get_controller_channel_value(uint8_t channel)
 {
   uint16_t channel_value = 0;
 
-  channel_value = rc_receiver_rmt_get_val(channel);
+  if (serial_control_enabled)
+  {
+    channel_value = serial_controller_get_val(channel);
+  }
+  else
+  {
+    channel_value = rc_receiver_rmt_get_val(channel);
+  }
 
   if (channel_value == 0)
   {

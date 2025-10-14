@@ -66,7 +66,7 @@ void serial_controller_register_connection_callback(SerialControllerStatusCb *cb
 uint16_t serial_controller_get_val(uint8_t channel)
 {
     uint16_t value;
-    assert(status == SERIAL_CONTROLLER_CONNECTED);
+    // assert(status == SERIAL_CONTROLLER_CONNECTED);
     assert(channel < RC_NUM_CHANNELS);
     value = channel_values[channel];
     return value;
